@@ -13,12 +13,15 @@ import com.squareup.workflow1.config.AndroidRuntimeConfigTools
 import com.squareup.workflow1.ui.WorkflowLayout
 import com.squareup.workflow1.ui.WorkflowUiExperimentalApi
 import com.squareup.workflow1.ui.renderWorkflowIn
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 
 @OptIn(WorkflowUiExperimentalApi::class)
 class HelloWorkflowActivity : AppCompatActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+
+    StateCollector.collect()
 
     // This ViewModel will survive configuration changes. It's instantiated
     // by the first call to viewModels(), and that original instance is returned by
@@ -31,11 +34,11 @@ class HelloWorkflowActivity : AppCompatActivity() {
 }
 
 class HelloViewModel(savedState: SavedStateHandle) : ViewModel() {
-  @OptIn(WorkflowUiExperimentalApi::class)
-  val renderings: StateFlow<HelloRendering> by lazy {
+  @OptIn(WorkflowUiExperimentalApi::class, WorkflowExperimentalRuntime::class)
+  val renderings by lazy {
     renderWorkflowIn(
-      workflow = HelloWorkflow,
-      scope = viewModelScope,
+      workflow = ParentWorkflow,
+      scope = scope,
       savedStateHandle = savedState,
       runtimeConfig = AndroidRuntimeConfigTools.getAppWorkflowRuntimeConfig()
     )
