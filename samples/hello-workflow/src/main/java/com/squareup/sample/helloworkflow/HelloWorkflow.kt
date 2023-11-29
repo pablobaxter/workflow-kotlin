@@ -1,5 +1,6 @@
 package com.squareup.sample.helloworkflow
 
+import android.util.Log
 import com.squareup.sample.helloworkflow.HelloWorkflow.State
 import com.squareup.sample.helloworkflow.HelloWorkflow.State.Goodbye
 import com.squareup.sample.helloworkflow.HelloWorkflow.State.Hello
@@ -13,6 +14,7 @@ import com.squareup.workflow1.parse
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -20,11 +22,17 @@ import java.util.concurrent.Executors
 
 private val globalState = MutableStateFlow(State.Initial)
 
-val scope = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher())
+val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
 object StateCollector {
   val collectedState = MutableStateFlow(State.Initial)
   fun collect() = scope
-    .launch { globalState.collect { collectedState.value = it } }
+    .launch(Dispatchers.Main.immediate) {
+      globalState.collect {
+        log("second")
+        collectedState.value = it
+      }
+    }
 }
 
 object HelloWorkflow : StatefulWorkflow<Unit, State, State, HelloRendering>() {
@@ -61,9 +69,9 @@ object HelloWorkflow : StatefulWorkflow<Unit, State, State, HelloRendering>() {
       Goodbye -> Hello
       Initial -> Hello
     }
-
+    log("first")
     globalState.value = state
-
+    log("third")
     setOutput(state)
   }
 }
@@ -75,6 +83,7 @@ object ParentWorkflow : StatelessWorkflow<Unit, Unit, HelloRendering>() {
   ): HelloRendering {
     return context.renderChild(HelloWorkflow, Unit) { output ->
       val newState = StateCollector.collectedState.value
+      log("fourth")
       assert(output == newState) {
         "Expected $output, but was $newState"
       }
@@ -82,4 +91,8 @@ object ParentWorkflow : StatelessWorkflow<Unit, Unit, HelloRendering>() {
       WorkflowAction.noAction()
     }
   }
+}
+
+fun log(message: String) {
+  Log.d("Blah", "Thread: ${Thread.currentThread()} - $message")
 }
